@@ -62,7 +62,7 @@ const MentionInput: FC<MentionInputProps> = ({
   const handleSetIstracking = (tracking: boolean, typeSpace?: string) => {
     setIstracking(tracking);
 
-    if (!tracking && valueNomal.length > 0 && valueNomal !== ' ') {
+    if (!tracking && valueNomal.length > 0 && valueNomal !== ' ' && valueNomal !== '\n') {
       setValueNomalTracking('');
       onChange(valueNomal + typeSpace);
     }

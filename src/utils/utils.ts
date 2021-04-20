@@ -201,6 +201,7 @@ const getMentionPartSuggestionKeywordsNomal = (
         // Incrementing space counter if the next symbol is space
         if (plainText[cursor] === ' ') {
           handleSetIstracking(false, ' ');
+          return;
           spacesCount += 1;
 
           // Check maximum allowed spaces in trigger word
