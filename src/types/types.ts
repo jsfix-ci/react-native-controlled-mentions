@@ -1,6 +1,13 @@
-import type { Change } from 'diff';
-import type { ReactNode, Ref } from 'react';
-import type { StyleProp, TextInput, TextInputProps, TextStyle, ViewStyle } from 'react-native';
+/* eslint-disable no-undef */
+import type {Change} from 'diff';
+import type {ReactNode, Ref} from 'react';
+import type {
+  StyleProp,
+  TextInput,
+  TextInputProps,
+  TextStyle,
+  ViewStyle,
+} from 'react-native';
 
 type Suggestion = {
   id: string;
@@ -14,7 +21,7 @@ type MentionData = {
   id: string;
 };
 
-type CharactersDiffChange = Omit<Change, 'count'> & { count: number };
+type CharactersDiffChange = Omit<Change, 'count'> & {count: number};
 
 type RegexMatchResult = string[] & {
   // Matched string
@@ -91,6 +98,14 @@ type Part = {
   data?: MentionData;
 };
 
+type NomalPartType = {
+  trigger: string;
+  mentionType: MentionPartType;
+  position?: Position;
+  allowedSpacesCount?: number;
+  isInsertSpaceAfterMention?: boolean;
+};
+
 type MentionInputProps = Omit<TextInputProps, 'onChange'> & {
   value: string;
   onChange: (value: string) => any;
@@ -100,6 +115,8 @@ type MentionInputProps = Omit<TextInputProps, 'onChange'> & {
   inputRef?: Ref<TextInput>;
 
   containerStyle?: StyleProp<ViewStyle>;
+
+  nomalPartTypes?: NomalPartType[];
 };
 
 export type {
@@ -114,4 +131,5 @@ export type {
   PatternPartType,
   PartType,
   MentionInputProps,
+  NomalPartType,
 };

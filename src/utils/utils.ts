@@ -1,5 +1,5 @@
-import { diffChars } from 'diff';
-import { StyleProp, TextStyle } from 'react-native';
+import {diffChars} from 'diff';
+import {StyleProp, TextStyle} from 'react-native';
 // @ts-ignore the lib do not have TS declarations yet
 import matchAll from 'string.prototype.matchall';
 import {
@@ -11,6 +11,7 @@ import {
   Position,
   RegexMatchResult,
   Suggestion,
+  NomalPartType,
 } from '../types';
 
 /**
@@ -23,16 +24,30 @@ import {
  */
 const mentionRegEx = /((.)\[([^[]*)]\(([^(^)]*)\))/gi;
 
-const defaultMentionTextStyle: StyleProp<TextStyle> = {fontWeight: 'bold', color: 'blue'};
+const defaultMentionTextStyle: StyleProp<TextStyle> = {
+  fontWeight: 'bold',
+  color: 'blue',
+};
 
-const defaultPlainStringGenerator = ({trigger}: MentionPartType, {name}: MentionData) => `${trigger}${name}`;
+const defaultPlainStringGenerator = (
+  {trigger}: MentionPartType,
+  {name}: MentionData,
+) => `${trigger}${name}`;
 
 const isMentionPartType = (partType: PartType): partType is MentionPartType => {
   return (partType as MentionPartType).trigger != null;
 };
 
-const getPartIndexByCursor = (parts: Part[], cursor: number, isIncludeEnd?: boolean) => {
-  return parts.findIndex(one => cursor >= one.position.start && isIncludeEnd ? cursor <= one.position.end : cursor < one.position.end);
+const getPartIndexByCursor = (
+  parts: Part[],
+  cursor: number,
+  isIncludeEnd?: boolean,
+) => {
+  return parts.findIndex(one =>
+    cursor >= one.position.start && isIncludeEnd
+      ? cursor <= one.position.end
+      : cursor < one.position.end,
+  );
 };
 
 /**
@@ -51,7 +66,11 @@ const getPartIndexByCursor = (parts: Part[], cursor: number, isIncludeEnd?: bool
  * @param cursor current cursor position
  * @param count count of characters that didn't change
  */
-const getPartsInterval = (parts: Part[], cursor: number, count: number): Part[] => {
+const getPartsInterval = (
+  parts: Part[],
+  cursor: number,
+  count: number,
+): Part[] => {
   const newCursor = cursor + count;
 
   const currentPartIndex = getPartIndexByCursor(parts, cursor);
@@ -67,25 +86,140 @@ const getPartsInterval = (parts: Part[], cursor: number, count: number): Part[] 
   }
 
   // Push whole first affected part or sub-part of the first affected part
-  if (currentPart.position.start === cursor && currentPart.position.end <= newCursor) {
+  if (
+    currentPart.position.start === cursor &&
+    currentPart.position.end <= newCursor
+  ) {
     partsInterval.push(currentPart);
   } else {
-    partsInterval.push(generatePlainTextPart(currentPart.text.substr(cursor - currentPart.position.start, count)));
+    partsInterval.push(
+      generatePlainTextPart(
+        currentPart.text.substr(cursor - currentPart.position.start, count),
+      ),
+    );
   }
 
   if (newPartIndex > currentPartIndex) {
     // Concat fully included parts
-    partsInterval = partsInterval.concat(parts.slice(currentPartIndex + 1, newPartIndex));
+    partsInterval = partsInterval.concat(
+      parts.slice(currentPartIndex + 1, newPartIndex),
+    );
 
     // Push whole last affected part or sub-part of the last affected part
-    if (newPart.position.end === newCursor && newPart.position.start >= cursor) {
+    if (
+      newPart.position.end === newCursor &&
+      newPart.position.start >= cursor
+    ) {
       partsInterval.push(newPart);
     } else {
-      partsInterval.push(generatePlainTextPart(newPart.text.substr(0, newCursor - newPart.position.start)));
+      partsInterval.push(
+        generatePlainTextPart(
+          newPart.text.substr(0, newCursor - newPart.position.start),
+        ),
+      );
     }
   }
 
   return partsInterval;
+};
+
+/**
+ *
+ * @param parts
+ * @param plainText
+ * @param selection
+ * @param partTypes
+ * @returns
+ */
+
+const getMentionPartSuggestionKeywordsNomal = (
+  parts: Part[],
+  plainText: string,
+  selection: Position,
+  nomalTriggers: NomalPartType[] | undefined,
+  handleSetIstracking: any,
+): {value: string; nomalTrigger: MentionPartType} => {
+  const keywordByTrigger: {[trigger: string]: string | undefined} = {};
+  let results: {value: string; nomalTrigger: MentionPartType} = {
+    value: '',
+    nomalTrigger: {
+      trigger: '',
+      isBottomMentionSuggestionsRender: false,
+    },
+  };
+
+  nomalTriggers
+    ?.filter(isMentionPartType)
+    .forEach(({trigger, allowedSpacesCount = 1, mentionType}) => {
+      keywordByTrigger[trigger] = undefined;
+
+      // Check if we don't have selection range
+      if (selection.end != selection.start) {
+        return;
+      }
+
+      // Find the part with the cursor
+      const part = parts.find(
+        one =>
+          selection.end > one.position.start &&
+          selection.end <= one.position.end,
+      );
+
+      // Check if the cursor is not in mention type part
+      if (part == null || part.data != null) {
+        return;
+      }
+
+      const triggerIndex = plainText.lastIndexOf(trigger, selection.end);
+
+      // Return undefined in case when:
+      if (
+        // - the trigger index is not event found
+        triggerIndex == -1 ||
+        // - the trigger index is out of found part with selection cursor
+        triggerIndex < part.position.start ||
+        // - the trigger is not at the beginning and we don't have space or new line before trigger
+        (triggerIndex > 0 && !/[\s\n]/gi.test(plainText[triggerIndex - 1]))
+      ) {
+        return;
+      }
+
+      // Looking for break lines and spaces between the current cursor and trigger
+      let spacesCount = 0;
+      for (
+        let cursor = selection.end - 1;
+        cursor >= triggerIndex;
+        cursor -= 1
+      ) {
+        plainText[cursor - 1] === trigger && handleSetIstracking(true);
+        // Mention cannot have new line
+        if (plainText[cursor] === '\n') {
+          handleSetIstracking(false, '\n');
+          return;
+        }
+
+        // Incrementing space counter if the next symbol is space
+        if (plainText[cursor] === ' ') {
+          handleSetIstracking(false, ' ');
+          spacesCount += 1;
+
+          // Check maximum allowed spaces in trigger word
+          if (spacesCount > allowedSpacesCount) {
+            return;
+          }
+        }
+      }
+
+      keywordByTrigger[trigger] = plainText.substring(
+        triggerIndex + 1,
+        selection.end,
+      );
+
+      results.value = plainText.substring(triggerIndex + 1, selection.end);
+      results.nomalTrigger = mentionType;
+    });
+
+  return results;
 };
 
 /**
@@ -110,70 +244,73 @@ const getMentionPartSuggestionKeywords = (
   plainText: string,
   selection: Position,
   partTypes: PartType[],
-): { [trigger: string]: string | undefined } => {
-  const keywordByTrigger: { [trigger: string]: string | undefined } = {};
+): {[trigger: string]: string | undefined} => {
+  const keywordByTrigger: {[trigger: string]: string | undefined} = {};
 
-  partTypes.filter(isMentionPartType).forEach((
-    {
-      trigger,
-      allowedSpacesCount = 1,
-    },
-  ) => {
-    keywordByTrigger[trigger] = undefined;
+  partTypes
+    .filter(isMentionPartType)
+    .forEach(({trigger, allowedSpacesCount = 1}) => {
+      keywordByTrigger[trigger] = undefined;
 
-    // Check if we don't have selection range
-    if (selection.end != selection.start) {
-      return;
-    }
-
-    // Find the part with the cursor
-    const part = parts.find(one => selection.end > one.position.start && selection.end <= one.position.end);
-
-    // Check if the cursor is not in mention type part
-    if (part == null || part.data != null) {
-      return;
-    }
-
-    const triggerIndex = plainText.lastIndexOf(trigger, selection.end);
-
-    // Return undefined in case when:
-    if (
-      // - the trigger index is not event found
-      triggerIndex == -1
-
-      // - the trigger index is out of found part with selection cursor
-      || triggerIndex < part.position.start
-
-      // - the trigger is not at the beginning and we don't have space or new line before trigger
-      || (triggerIndex > 0 && !/[\s\n]/gi.test(plainText[triggerIndex - 1]))
-    ) {
-      return;
-    }
-
-    // Looking for break lines and spaces between the current cursor and trigger
-    let spacesCount = 0;
-    for (let cursor = selection.end - 1; cursor >= triggerIndex; cursor -= 1) {
-      // Mention cannot have new line
-      if (plainText[cursor] === '\n') {
+      // Check if we don't have selection range
+      if (selection.end != selection.start) {
         return;
       }
 
-      // Incrementing space counter if the next symbol is space
-      if (plainText[cursor] === ' ') {
-        spacesCount += 1;
+      // Find the part with the cursor
+      const part = parts.find(
+        one =>
+          selection.end > one.position.start &&
+          selection.end <= one.position.end,
+      );
 
-        // Check maximum allowed spaces in trigger word
-        if (spacesCount > allowedSpacesCount) {
+      // Check if the cursor is not in mention type part
+      if (part == null || part.data != null) {
+        return;
+      }
+
+      const triggerIndex = plainText.lastIndexOf(trigger, selection.end);
+
+      // Return undefined in case when:
+      if (
+        // - the trigger index is not event found
+        triggerIndex == -1 ||
+        // - the trigger index is out of found part with selection cursor
+        triggerIndex < part.position.start ||
+        // - the trigger is not at the beginning and we don't have space or new line before trigger
+        (triggerIndex > 0 && !/[\s\n]/gi.test(plainText[triggerIndex - 1]))
+      ) {
+        return;
+      }
+
+      // Looking for break lines and spaces between the current cursor and trigger
+      let spacesCount = 0;
+      for (
+        let cursor = selection.end - 1;
+        cursor >= triggerIndex;
+        cursor -= 1
+      ) {
+        // Mention cannot have new line
+        if (plainText[cursor] === '\n') {
           return;
         }
-      }
-    }
 
-    keywordByTrigger[trigger] = plainText.substring(
-      triggerIndex + 1,
-      selection.end,
-    );
-  });
+        // Incrementing space counter if the next symbol is space
+        if (plainText[cursor] === ' ') {
+          spacesCount += 1;
+
+          // Check maximum allowed spaces in trigger word
+          if (spacesCount > allowedSpacesCount) {
+            return;
+          }
+        }
+      }
+
+      keywordByTrigger[trigger] = plainText.substring(
+        triggerIndex + 1,
+        selection.end,
+      );
+    });
 
   return keywordByTrigger;
 };
@@ -185,8 +322,15 @@ const getMentionPartSuggestionKeywords = (
  * @param originalText original plain text
  * @param changedText changed plain text
  */
-const generateValueFromPartsAndChangedText = (parts: Part[], originalText: string, changedText: string) => {
-  const changes = diffChars(originalText, changedText) as CharactersDiffChange[];
+const generateValueFromPartsAndChangedText = (
+  parts: Part[],
+  originalText: string,
+  changedText: string,
+) => {
+  const changes = diffChars(
+    originalText,
+    changedText,
+  ) as CharactersDiffChange[];
 
   let newParts: Part[] = [];
 
@@ -221,7 +365,9 @@ const generateValueFromPartsAndChangedText = (parts: Part[], originalText: strin
        */
       default: {
         if (change.count !== 0) {
-          newParts = newParts.concat(getPartsInterval(parts, cursor, change.count));
+          newParts = newParts.concat(
+            getPartsInterval(parts, cursor, change.count),
+          );
 
           cursor += change.count;
         }
@@ -256,29 +402,42 @@ const generateValueWithAddedSuggestion = (
   selection: Position,
   suggestion: Suggestion,
 ): string | undefined => {
-  const currentPartIndex = parts.findIndex(one => selection.end >= one.position.start && selection.end <= one.position.end);
+  const currentPartIndex = parts.findIndex(
+    one =>
+      selection.end >= one.position.start && selection.end <= one.position.end,
+  );
   const currentPart = parts[currentPartIndex];
 
   if (!currentPart) {
     return;
   }
 
-  const triggerPartIndex = currentPart.text.lastIndexOf(mentionType.trigger, selection.end - currentPart.position.start);
+  const triggerPartIndex = currentPart.text.lastIndexOf(
+    mentionType.trigger,
+    selection.end - currentPart.position.start,
+  );
 
   const newMentionPartPosition: Position = {
     start: triggerPartIndex,
     end: selection.end - currentPart.position.start,
   };
 
-  const isInsertSpaceToNextPart = mentionType.isInsertSpaceAfterMention
+  const isInsertSpaceToNextPart =
+    mentionType.isInsertSpaceAfterMention &&
     // Cursor is at the very end of parts or text row
-    && (plainText.length === selection.end || parts[currentPartIndex]?.text.startsWith('\n', newMentionPartPosition.end));
+    (plainText.length === selection.end ||
+      parts[currentPartIndex]?.text.startsWith(
+        '\n',
+        newMentionPartPosition.end,
+      ));
 
   return getValueFromParts([
     ...parts.slice(0, currentPartIndex),
 
     // Create part with string before mention
-    generatePlainTextPart(currentPart.text.substring(0, newMentionPartPosition.start)),
+    generatePlainTextPart(
+      currentPart.text.substring(0, newMentionPartPosition.start),
+    ),
     generateMentionPart(mentionType, {
       original: getMentionValue(mentionType.trigger, suggestion),
       trigger: mentionType.trigger,
@@ -286,7 +445,11 @@ const generateValueWithAddedSuggestion = (
     }),
 
     // Create part with rest of string after mention and add a space if needed
-    generatePlainTextPart(`${isInsertSpaceToNextPart ? ' ' : ''}${currentPart.text.substring(newMentionPartPosition.end)}`),
+    generatePlainTextPart(
+      `${isInsertSpaceToNextPart ? ' ' : ''}${currentPart.text.substring(
+        newMentionPartPosition.end,
+      )}`,
+    ),
 
     ...parts.slice(currentPartIndex + 1),
   ]);
@@ -313,7 +476,11 @@ const generatePlainTextPart = (text: string, positionOffset = 0): Part => ({
  * @param mention - mention data
  * @param positionOffset - position offset from the very beginning of text
  */
-const generateMentionPart = (mentionPartType: MentionPartType, mention: MentionData, positionOffset = 0): Part => {
+const generateMentionPart = (
+  mentionPartType: MentionPartType,
+  mention: MentionData,
+  positionOffset = 0,
+): Part => {
   const text = mentionPartType.getPlainString
     ? mentionPartType.getPlainString(mention)
     : defaultPlainStringGenerator(mentionPartType, mention);
@@ -336,7 +503,11 @@ const generateMentionPart = (mentionPartType: MentionPartType, mention: MentionD
  * @param result - matched regex result
  * @param positionOffset - position offset from the very beginning of text
  */
-const generateRegexResultPart = (partType: PartType, result: RegexMatchResult, positionOffset = 0): Part => ({
+const generateRegexResultPart = (
+  partType: PartType,
+  result: RegexMatchResult,
+  positionOffset = 0,
+): Part => ({
   text: result[0],
   position: {
     start: positionOffset,
@@ -351,9 +522,16 @@ const generateRegexResultPart = (partType: PartType, result: RegexMatchResult, p
  * @param trigger
  * @param suggestion
  */
-const getMentionValue = (trigger: string, suggestion: Suggestion) => `${trigger}[${suggestion.name}](${suggestion.id})`;
+const getMentionValue = (trigger: string, suggestion: Suggestion) =>
+  `${trigger}[${suggestion.name}](${suggestion.id})`;
 
-const getMentionDataFromRegExMatchResult = ([, original, trigger, name, id]: RegexMatchResult): MentionData => ({
+const getMentionDataFromRegExMatchResult = ([
+  ,
+  original,
+  trigger,
+  name,
+  id,
+]: RegexMatchResult): MentionData => ({
   original,
   trigger,
   name,
@@ -371,7 +549,7 @@ const parseValue = (
   value: string,
   partTypes: PartType[],
   positionOffset = 0,
-): { plainText: string; parts: Part[] } => {
+): {plainText: string; parts: Part[]} => {
   if (value == null) {
     value = '';
   }
@@ -388,7 +566,9 @@ const parseValue = (
 
     const regex = isMentionPartType(partType) ? mentionRegEx : partType.pattern;
 
-    const matches: RegexMatchResult[] = Array.from(matchAll(value ?? '', regex));
+    const matches: RegexMatchResult[] = Array.from(
+      matchAll(value ?? '', regex),
+    );
 
     // In case when we didn't get any matches continue parsing value with rest part types
     if (matches.length === 0) {
@@ -414,18 +594,30 @@ const parseValue = (
         // Matched pattern is a mention and the mention doesn't match current mention type
         // We should parse the mention with rest part types
         if (mentionData.trigger !== partType.trigger) {
-          const plainTextAndParts = parseValue(mentionData.original, restPartTypes, positionOffset + plainText.length);
+          const plainTextAndParts = parseValue(
+            mentionData.original,
+            restPartTypes,
+            positionOffset + plainText.length,
+          );
           parts = parts.concat(plainTextAndParts.parts);
           plainText += plainTextAndParts.plainText;
         } else {
-          const part = generateMentionPart(partType, mentionData, positionOffset + plainText.length);
+          const part = generateMentionPart(
+            partType,
+            mentionData,
+            positionOffset + plainText.length,
+          );
 
           parts.push(part);
 
           plainText += part.text;
         }
       } else {
-        const part = generateRegexResultPart(partType, result, positionOffset + plainText.length);
+        const part = generateRegexResultPart(
+          partType,
+          result,
+          positionOffset + plainText.length,
+        );
 
         parts.push(part);
 
@@ -434,7 +626,7 @@ const parseValue = (
 
       // Check if the result is not at the end of whole value so we have a text after matched part
       // We should parse the text with rest part types
-      if ((result.index + result[0].length) !== value.length) {
+      if (result.index + result[0].length !== value.length) {
         // Check if it is the last result
         const isLastResult = i === matches.length - 1;
 
@@ -444,7 +636,11 @@ const parseValue = (
           isLastResult ? undefined : matches[i + 1].index,
         );
 
-        const plainTextAndParts = parseValue(text, restPartTypes, positionOffset + plainText.length);
+        const plainTextAndParts = parseValue(
+          text,
+          restPartTypes,
+          positionOffset + plainText.length,
+        );
         parts = parts.concat(plainTextAndParts.parts);
         plainText += plainTextAndParts.plainText;
       }
@@ -463,9 +659,8 @@ const parseValue = (
  *
  * @param parts
  */
-const getValueFromParts = (parts: Part[]) => parts
-  .map(item => (item.data ? item.data.original : item.text))
-  .join('');
+const getValueFromParts = (parts: Part[]) =>
+  parts.map(item => (item.data ? item.data.original : item.text)).join('');
 
 /**
  * Replace all mention values in value to some specified format
@@ -476,12 +671,15 @@ const getValueFromParts = (parts: Part[]) => parts
 const replaceMentionValues = (
   value: string,
   replacer: (mention: MentionData) => string,
-) => value.replace(mentionRegEx, (fullMatch, original, trigger, name, id) => replacer({
-  original,
-  trigger,
-  name,
-  id,
-}));
+) =>
+  value.replace(mentionRegEx, (fullMatch, original, trigger, name, id) =>
+    replacer({
+      original,
+      trigger,
+      name,
+      id,
+    }),
+  );
 
 export {
   mentionRegEx,
@@ -496,4 +694,5 @@ export {
   parseValue,
   getValueFromParts,
   replaceMentionValues,
+  getMentionPartSuggestionKeywordsNomal,
 };

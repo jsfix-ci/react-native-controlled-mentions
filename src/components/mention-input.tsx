@@ -1,4 +1,12 @@
-import React, { FC, MutableRefObject, useMemo, useRef, useState } from 'react';
+import React, {
+  FC,
+  MutableRefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import {
   NativeSyntheticEvent,
   Text,
@@ -7,42 +15,62 @@ import {
   View,
 } from 'react-native';
 
-import { MentionInputProps, MentionPartType, Suggestion } from '../types';
+import {MentionInputProps, MentionPartType, Suggestion} from '../types';
 import {
   defaultMentionTextStyle,
   generateValueFromPartsAndChangedText,
   generateValueWithAddedSuggestion,
   getMentionPartSuggestionKeywords,
+  getMentionPartSuggestionKeywordsNomal,
   isMentionPartType,
   parseValue,
 } from '../utils';
 
-const MentionInput: FC<MentionInputProps> = (
-  {
-    value,
-    onChange,
+const MentionInput: FC<MentionInputProps> = ({
+  value,
+  onChange,
 
-    partTypes = [],
+  partTypes = [],
 
-    inputRef: propInputRef,
+  inputRef: propInputRef,
 
-    containerStyle,
+  containerStyle,
 
-    onSelectionChange,
+  onSelectionChange,
 
-    ...textInputProps
-  },
-) => {
+  nomalPartTypes,
+
+  ...textInputProps
+}) => {
   const textInput = useRef<TextInput | null>(null);
 
   const [selection, setSelection] = useState({start: 0, end: 0});
+  const [isTracking, setIstracking] = useState(false);
+  const [valueNomal, setValueNomalTracking] = useState('');
 
-  const {
-    plainText,
-    parts,
-  } = useMemo(() => parseValue(value, partTypes), [value, partTypes]);
+  const {plainText, parts} = useMemo(() => parseValue(value, partTypes), [
+    value,
+    partTypes,
+  ]);
 
-  const handleSelectionChange = (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+  /**
+   *
+   * @param tracking
+   * @param typeSpace
+   */
+
+  const handleSetIstracking = (tracking: boolean, typeSpace?: string) => {
+    setIstracking(tracking);
+
+    if (!tracking && valueNomal.length > 0 && valueNomal !== ' ') {
+      setValueNomalTracking('');
+      onChange(valueNomal + typeSpace);
+    }
+  };
+
+  const handleSelectionChange = (
+    event: NativeSyntheticEvent<TextInputSelectionChangeEventData>,
+  ) => {
     setSelection(event.nativeEvent.selection);
 
     onSelectionChange && onSelectionChange(event);
@@ -54,12 +82,18 @@ const MentionInput: FC<MentionInputProps> = (
    * @param changedText
    */
   const onChangeInput = (changedText: string) => {
-    onChange(generateValueFromPartsAndChangedText(parts, plainText, changedText));
+    if (nomalPartTypes && nomalPartTypes.length > 0) {
+      isTracking && setIstracking(false);
+    }
+    onChange(
+      generateValueFromPartsAndChangedText(parts, plainText, changedText),
+    );
   };
 
   /**
    * We memoize the keyword to know should we show mention suggestions or not
    */
+
   const keywordByTrigger = useMemo(() => {
     return getMentionPartSuggestionKeywords(
       parts,
@@ -69,12 +103,25 @@ const MentionInput: FC<MentionInputProps> = (
     );
   }, [parts, plainText, selection, partTypes]);
 
+  const keywordByTriggerNomal = useMemo(() => {
+    return getMentionPartSuggestionKeywordsNomal(
+      parts,
+      plainText,
+      selection,
+      nomalPartTypes,
+      handleSetIstracking,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parts, plainText, selection, nomalPartTypes]);
+
   /**
    * Callback on mention suggestion press. We should:
    * - Get updated value
    * - Trigger onChange callback with new value
    */
-  const onSuggestionPress = (mentionType: MentionPartType) => (suggestion: Suggestion) => {
+  const onSuggestionPress = (mentionType: MentionPartType) => (
+    suggestion: Suggestion,
+  ) => {
     const newValue = generateValueWithAddedSuggestion(
       parts,
       mentionType,
@@ -115,60 +162,83 @@ const MentionInput: FC<MentionInputProps> = (
     }
   };
 
+  const handleSetInputTracking = useCallback((newValue: string) => {
+    setValueNomalTracking(newValue);
+  }, []);
+
+  useEffect(() => {
+    if (
+      keywordByTriggerNomal &&
+      keywordByTriggerNomal.value &&
+      keywordByTriggerNomal.value !== ' ' &&
+      isTracking
+    ) {
+      const suggestion = {
+        id: keywordByTriggerNomal.value,
+        name: keywordByTriggerNomal.value,
+      };
+
+      const newValue = generateValueWithAddedSuggestion(
+        parts,
+        keywordByTriggerNomal.nomalTrigger,
+        plainText,
+        selection,
+        suggestion,
+      );
+
+      newValue && handleSetInputTracking(newValue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keywordByTriggerNomal, isTracking]);
+
   const renderMentionSuggestions = (mentionType: MentionPartType) => (
     <React.Fragment key={mentionType.trigger}>
-      {mentionType.renderSuggestions && mentionType.renderSuggestions({
-        keyword: keywordByTrigger[mentionType.trigger],
-        onSuggestionPress: onSuggestionPress(mentionType),
-      })}
+      {mentionType.renderSuggestions &&
+        mentionType.renderSuggestions({
+          keyword: keywordByTrigger[mentionType.trigger],
+          onSuggestionPress: onSuggestionPress(mentionType),
+        })}
     </React.Fragment>
   );
 
   return (
     <View style={containerStyle}>
-      {(partTypes
-        .filter(one => (
-          isMentionPartType(one)
-          && one.renderSuggestions != null
-          && !one.isBottomMentionSuggestionsRender
-        )) as MentionPartType[])
-        .map(renderMentionSuggestions)
-      }
+      {(partTypes.filter(
+        one =>
+          isMentionPartType(one) &&
+          one.renderSuggestions != null &&
+          !one.isBottomMentionSuggestionsRender,
+      ) as MentionPartType[]).map(renderMentionSuggestions)}
 
       <TextInput
         multiline
-
         {...textInputProps}
-
         ref={handleTextInputRef}
-
         onChangeText={onChangeInput}
-        onSelectionChange={handleSelectionChange}
-      >
+        onSelectionChange={handleSelectionChange}>
         <Text>
-          {parts.map(({text, partType, data}, index) => partType ? (
-            <Text
-              key={`${index}-${data?.trigger ?? 'pattern'}`}
-              style={partType.textStyle ?? defaultMentionTextStyle}
-            >
-              {text}
-            </Text>
-          ) : (
-            <Text key={index}>{text}</Text>
-          ))}
+          {parts.map(({text, partType, data}, index) =>
+            partType ? (
+              <Text
+                key={`${index}-${data?.trigger ?? 'pattern'}`}
+                style={partType.textStyle ?? defaultMentionTextStyle}>
+                {text}
+              </Text>
+            ) : (
+              <Text key={index}>{text}</Text>
+            ),
+          )}
         </Text>
       </TextInput>
 
-      {(partTypes
-        .filter(one => (
-          isMentionPartType(one)
-          && one.renderSuggestions != null
-          && one.isBottomMentionSuggestionsRender
-        )) as MentionPartType[])
-        .map(renderMentionSuggestions)
-      }
+      {(partTypes.filter(
+        one =>
+          isMentionPartType(one) &&
+          one.renderSuggestions != null &&
+          one.isBottomMentionSuggestionsRender,
+      ) as MentionPartType[]).map(renderMentionSuggestions)}
     </View>
   );
 };
 
-export { MentionInput };
+export {MentionInput};
