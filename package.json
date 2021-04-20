@@ -1,6 +1,6 @@
 {
-  "name": "react-native-controlled-mentions",
-  "version": "2.2.5",
+  "name": "@jezzs2k/react-native-controlled-mentions",
+  "version": "2.2.6",
   "description": "Fully controlled React Native mentions component",
   "keywords": [
     "react",
@@ -13,7 +13,7 @@
     "prepare": "tsc",
     "build": "tsc",
     "test": "jest",
-    "changelog": "github_changelog_generator -u dabakovich -p react-native-controlled-mentions"
+    "changelog": "github_changelog_generator -u jezzs2k -p react-native-controlled-mentions"
   },
   "files": [
     "dist"
@@ -22,9 +22,9 @@
   "types": "./dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dabakovich/react-native-controlled-mentions.git"
+    "url": "git+https://github.com/jezzs2k/react-native-controlled-mentions"
   },
-  "author": "David Tabaka <dabakovich@gmail.com>",
+  "author": "jezzs2k <jezzs2k@gmail.com>",
   "license": "MIT",
   "devDependencies": {
     "@types/diff": "^4.0.2",
