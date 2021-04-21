@@ -1,5 +1,7 @@
 import {diffChars} from 'diff';
 import {StyleProp, TextStyle} from 'react-native';
+import {from, Observable} from 'rxjs';
+import {map, toArray, concatMap} from 'rxjs/operators';
 // @ts-ignore the lib do not have TS declarations yet
 import matchAll from 'string.prototype.matchall';
 import {
@@ -682,6 +684,72 @@ const replaceMentionValues = (
     }),
   );
 
+  async function replaceAsync(str: any, regex: any, asyncFn: any) {
+    let promises: string[] = [];
+    str.replace(regex, (data: string) => {
+      const promise = asyncFn(data);
+      promises = [...promises, promise];
+  
+      return data;
+    });
+    const data = await Promise.all(promises);
+  
+    return data;
+  }
+  
+  function displayTextWithTrigger(
+    text: string,
+    cb: any,
+    renderTriggerElement: any,
+  ) {
+    let subText = text;
+  
+    const converTextToStringTrigger$ = new Observable(subscriber => {
+      replaceAsync(text, mentionRegEx, (data: any) => data)
+        .then(data => {
+          subscriber.next(data);
+          subscriber.complete();
+        })
+        .catch(err => subscriber.error(err));
+    });
+  
+    converTextToStringTrigger$
+      .pipe(
+        concatMap((val: any) => {
+          return from([...val]).pipe(
+            map((item: any) => {
+              let str = [];
+              const posText = subText.indexOf(item);
+              const textNoTrigger = subText.slice(0, posText);
+  
+              str.push(textNoTrigger);
+              subText = subText.slice(posText + item.length, text.length);
+  
+              const [empty, fullMatch, trigger, name, id] = item.split(
+                mentionRegEx,
+              );
+  
+              str.push(
+                renderTriggerElement({empty, fullMatch, trigger, name, id}),
+              );
+  
+              if (!subText.match(mentionRegEx)) {
+                return [subText];
+              }
+  
+              return str;
+            }),
+            toArray(),
+          );
+        }),
+      )
+      .subscribe(val => {
+        if (val && val.length > 0) {
+          cb(val);
+        }
+      });
+  }
+
 export {
   mentionRegEx,
   defaultMentionTextStyle,
@@ -696,4 +764,6 @@ export {
   getValueFromParts,
   replaceMentionValues,
   getMentionPartSuggestionKeywordsNomal,
+  displayTextWithTrigger,
+  replaceAsync,
 };

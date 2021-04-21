@@ -5,5 +5,5 @@ export type {
 } from './types';
 
 export {
-  mentionRegEx, isMentionPartType, getMentionValue, parseValue, replaceMentionValues,
+  mentionRegEx, isMentionPartType, getMentionValue, parseValue, replaceMentionValues, displayTextWithTrigger
 } from './utils';

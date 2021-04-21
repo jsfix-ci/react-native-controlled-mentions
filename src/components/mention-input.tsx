@@ -188,7 +188,6 @@ const MentionInput: FC<MentionInputProps> = ({
 
       newValue && handleSetInputTracking(newValue);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keywordByTriggerNomal, isTracking]);
 
   const renderMentionSuggestions = (mentionType: MentionPartType) => (
