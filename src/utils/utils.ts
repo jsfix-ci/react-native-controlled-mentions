@@ -707,7 +707,9 @@ const replaceMentionValues = (
     const converTextToStringTrigger$ = new Observable(subscriber => {
       replaceAsync(text, mentionRegEx, (data: any) => data)
         .then(data => {
-          subscriber.next(data);
+          const result = data.length > 0 ? data : [''];
+            
+          subscriber.next(result);
           subscriber.complete();
         })
         .catch(err => subscriber.error(err));
@@ -734,7 +736,7 @@ const replaceMentionValues = (
               );
   
               if (!subText.match(mentionRegEx)) {
-                return [subText];
+                return [...str, subText];
               }
   
               return str;
