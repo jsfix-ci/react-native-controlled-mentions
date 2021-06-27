@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
-import type {Change} from 'diff';
-import type {ReactNode, Ref} from 'react';
+import type { Change } from 'diff';
+import type { ReactNode, Ref } from 'react';
 import type {
   StyleProp,
   TextInput,
@@ -21,7 +21,7 @@ type MentionData = {
   id: string;
 };
 
-type CharactersDiffChange = Omit<Change, 'count'> & {count: number};
+type CharactersDiffChange = Omit<Change, 'count'> & { count: number };
 
 type RegexMatchResult = string[] & {
   // Matched string
@@ -124,11 +124,7 @@ type MentionInputProps = Omit<TextInputProps, 'onChange'> & {
 
   handleNonTracking?: () => any;
 
-  amountData?: number;
-
   maxHeightInput?: number;
-
-  maxHeightSuggestion?: number;
 };
 
 export type {

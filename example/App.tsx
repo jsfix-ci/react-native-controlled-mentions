@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
 import * as React from 'react';
-import {FC, useCallback, useEffect, useState} from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
   Text,
@@ -8,8 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import {MentionInput, MentionSuggestionsProps, Suggestion} from './src';
-import {Subject, Observable} from 'rxjs';
+import { MentionInput, MentionSuggestionsProps, Suggestion } from './src';
+import { Subject, Observable } from 'rxjs';
 import {
   debounceTime,
   distinctUntilChanged,
@@ -37,17 +37,17 @@ const KEY_CONFIG_URL =
 // ];
 
 const hashtags = [
-  {id: 'todo', name: 'todo'},
-  {id: 'help', name: 'help'},
-  {id: 'loveyou', name: 'loveyou'},
+  { id: 'todo', name: 'todo' },
+  { id: 'help', name: 'help' },
+  { id: 'loveyou', name: 'loveyou' },
 ];
 
-const SuggestionItem = ({item, onSuggestionPress}: any) => {
+const SuggestionItem = ({ item, onSuggestionPress }: any) => {
   return (
     <Pressable
       key={item.id}
       onPress={() => onSuggestionPress(item)}
-      style={{padding: 15}}>
+      style={{ padding: 15 }}>
       <Text>{item.name}</Text>
     </Pressable>
   );
@@ -58,33 +58,29 @@ const renderSuggestions: (
   isSearching: boolean,
 ) => FC<MentionSuggestionsProps> =
   (suggestions, isSearching) =>
-  ({keyword, onSuggestionPress, isShowSuggesstion}) => {
-    if (keyword == null) {
-      return null;
-    }
+    ({ keyword, onSuggestionPress, isShowSuggesstion }) => {
+      if (keyword == null) {
+        return null;
+      }
 
-    console.log('isShowSuggesstion', isShowSuggesstion);
-
-    return (
-      <ScrollView
-        nestedScrollEnabled
-        keyboardShouldPersistTaps={'handled'}
-        style={{maxHeight: 200}}
-        onLayout={e => {
-          console.log(e.nativeEvent.layout.height);
-        }}>
-        {isSearching && <ActivityIndicator color={'#000000'} size={'large'} />}
-        {isShowSuggesstion &&
-          suggestions.map(item => (
-            <SuggestionItem
-              item={item}
-              onSuggestionPress={onSuggestionPress}
-              key={item?.id}
-            />
-          ))}
-      </ScrollView>
-    );
-  };
+      return (
+        <ScrollView
+          nestedScrollEnabled
+          keyboardShouldPersistTaps={'handled'}
+          style={{ maxHeight: 200 }}
+        >
+          {isSearching && <ActivityIndicator color={'#000000'} size={'large'} />}
+          {!isSearching &&
+            suggestions.map(item => (
+              <SuggestionItem
+                item={item}
+                onSuggestionPress={onSuggestionPress}
+                key={item?.id}
+              />
+            ))}
+        </ScrollView>
+      );
+    };
 
 // const renderMentionSuggestions = renderSuggestions(users);
 
@@ -110,17 +106,15 @@ const App = () => {
         switchMap(async (text: string) => {
           const response = await axios.get(getUsersURL(text || ''));
           setDateUser([]);
-          console.log(response.data);
 
           return response.data;
         }),
         map((data: any) =>
-          data?.items.map((item: any) => ({id: item.id, name: item.login})),
+          data?.items.map((item: any) => ({ id: item.id, name: item.login })),
         ),
       )
       .subscribe({
         next: (data: any) => {
-          console.log('data', data);
           data && setDateUser(data);
           setIsSearch(false);
         },
@@ -129,7 +123,7 @@ const App = () => {
           setIsSearch(false);
           setDateUser([]);
         },
-        complete: () => {},
+        complete: () => { },
       });
   }, []);
 
@@ -160,13 +154,13 @@ const App = () => {
             trigger: '#',
             allowedSpacesCount: 0,
             isInsertSpaceAfterMention: true,
-            renderSuggestions: renderHashtagSuggestions,
-            textStyle: {fontWeight: 'bold', color: 'blue'},
+            renderSuggestions: renderSuggestions(dataUser, isSearching),
+            textStyle: { fontWeight: 'bold', color: 'blue' },
           },
           {
             pattern:
               /(https?:\/\/|www\.)[-a-zA-Z0-9@:%._\\+~#=]{1,256}\.(xn--)?[a-z0-9-]{2,20}\b([-a-zA-Z0-9@:%_\\+\\[\],.~#?&\\/=]*[-a-zA-Z0-9@:%_\\+\]~#?&\\/=])*/gi,
-            textStyle: {color: 'blue'},
+            textStyle: { color: 'blue' },
           },
         ]}
         nomalPartTypes={[
@@ -175,7 +169,7 @@ const App = () => {
             mentionType: {
               trigger: '#',
               allowedSpacesCount: 0,
-              textStyle: {fontWeight: 'bold', color: 'blue'},
+              textStyle: { fontWeight: 'bold', color: 'blue' },
             },
           },
         ]}
@@ -184,9 +178,7 @@ const App = () => {
           text && handleChangeText(text);
         }}
         maxHeightInput={140}
-        style={{padding: 12}}
-        amountData={dataUser.length}
-        maxHeightSuggestion={200}
+        style={{ padding: 12 }}
       />
     </ScrollView>
   );

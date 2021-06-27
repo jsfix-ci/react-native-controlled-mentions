@@ -7,7 +7,7 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import {Keyboard, StyleSheet} from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 import {
   NativeSyntheticEvent,
   Text,
@@ -17,7 +17,7 @@ import {
   Dimensions,
 } from 'react-native';
 
-import {MentionInputProps, MentionPartType, Suggestion} from '../types';
+import { MentionInputProps, MentionPartType, Suggestion } from '../types';
 import {
   defaultMentionTextStyle,
   generateValueFromPartsAndChangedText,
@@ -28,11 +28,12 @@ import {
   parseValue,
 } from '../utils';
 
-const {State: TextInputState} = TextInput;
-const {height: heightWindow} = Dimensions.get('window');
+const { State: TextInputState } = TextInput;
+const { height: heightWindow } = Dimensions.get('window');
 
 const MentionInput: FC<MentionInputProps> = ({
   value,
+
   onChange,
 
   partTypes = [],
@@ -49,27 +50,21 @@ const MentionInput: FC<MentionInputProps> = ({
 
   handleNonTracking,
 
-  amountData,
-
-  maxHeightSuggestion = 300,
-
   maxHeightInput = 50,
 
   ...textInputProps
 }) => {
   const textInput = useRef<TextInput | null>(null);
 
-  const [selection, setSelection] = useState({start: 0, end: 0});
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [isTrackingHashtag, setIstrackingHashtag] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const [valueNomal, setValueNomalTracking] = useState('');
   const [isShowSuggesstion, setIsShowSuggesstion] = useState(false);
   const [posictionSuggestion, setPossitionSuggestion] =
-    useState(maxHeightSuggestion);
-  const [possitonTextInput, setPossitonTextInput] = useState(0);
-  const [heightTextInput, setHeightTextInput] = useState(0);
+    useState(0);
 
-  const {plainText, parts} = useMemo(
+  const { plainText, parts } = useMemo(
     () => parseValue(value, partTypes),
     [value, partTypes],
   );
@@ -113,10 +108,10 @@ const MentionInput: FC<MentionInputProps> = ({
       if (
         (item?.trigger &&
           item?.trigger ===
-            changedText.slice(changedText.length - 1, changedText.length)) ||
+          changedText.slice(changedText.length - 1, changedText.length)) ||
         isTracking
       ) {
-        handleTracking && handleTracking(keywordByTrigger[item?.trigger] || '');
+        handleTracking && keywordByTrigger[item?.trigger] && handleTracking(keywordByTrigger[item?.trigger] + changedText[changedText.length - 1] || '');
         !isTracking && setIsTracking(true);
       }
     });
@@ -202,19 +197,13 @@ const MentionInput: FC<MentionInputProps> = ({
     setValueNomalTracking(newValue);
   }, []);
 
-  console.log('amountData', amountData);
-
-  useEffect(() => {
-    if (possitonTextInput && amountData && amountData > 4) {
-      setPossitionSuggestion(possitonTextInput - maxHeightSuggestion);
-      setIsShowSuggesstion(true);
+  const handleLayoutChange = (e: any) => {
+    if (e.nativeEvent.layout.height < maxHeightInput) {
+      setPossitionSuggestion(e.nativeEvent.layout.height);
+    } else {
+      setPossitionSuggestion(maxHeightInput);
     }
-
-    if (possitonTextInput && amountData && amountData <= 4) {
-      setPossitionSuggestion(possitonTextInput - 30 * amountData);
-      setIsShowSuggesstion(true);
-    }
-  }, [amountData, maxHeightSuggestion, possitonTextInput]);
+  }
 
   useEffect(() => {
     if (
@@ -265,16 +254,15 @@ const MentionInput: FC<MentionInputProps> = ({
       const keyboardHeight = event.endCoordinates.height;
 
       currentlyFocusedField.measure((x, y, width, height, pageX, pageY) => {
-        const temPosition = heightWindow - pageY - heightTextInput;
-        setPossitonTextInput(heightWindow - keyboardHeight + heightTextInput);
-        setPossitionSuggestion(heightWindow - keyboardHeight);
+        const temPosition = heightWindow - pageY - height;
+        setPossitionSuggestion(height);
 
         if (keyboardHeight < temPosition) {
           // pushFlatlist
         }
       });
     });
-  }, [heightTextInput]);
+  }, []);
 
   const renderMentionSuggestions = (mentionType: MentionPartType) => (
     <React.Fragment key={mentionType.trigger}>
@@ -287,11 +275,9 @@ const MentionInput: FC<MentionInputProps> = ({
     </React.Fragment>
   );
 
-  console.log('posictionSuggestion', posictionSuggestion);
-
   return (
     <React.Fragment>
-      <View style={[styles.suggestionsStyle, {top: posictionSuggestion}]}>
+      <View style={[styles.suggestionsStyle, { bottom: posictionSuggestion }]}>
         {(
           partTypes.filter(
             one =>
@@ -301,25 +287,19 @@ const MentionInput: FC<MentionInputProps> = ({
           ) as MentionPartType[]
         ).map(renderMentionSuggestions)}
       </View>
-      <View style={[containerStyle, {maxHeight: maxHeightInput}]}>
+      <View style={[containerStyle, { maxHeight: maxHeightInput }]}>
         <TextInput
           style={{
             maxHeight: maxHeightInput,
           }}
-          onLayout={e => {
-            if (e.nativeEvent.layout.height < maxHeightInput) {
-              setHeightTextInput(e.nativeEvent.layout.height);
-            } else {
-              setHeightTextInput(maxHeightInput);
-            }
-          }}
+          onLayout={handleLayoutChange}
           multiline
           {...textInputProps}
           ref={handleTextInputRef}
           onChangeText={onChangeInput}
           onSelectionChange={handleSelectionChange}>
           <Text>
-            {parts.map(({text, partType, data}, index) =>
+            {parts.map(({ text, partType, data }, index) =>
               partType ? (
                 <Text
                   key={`${index}-${data?.trigger ?? 'pattern'}`}
@@ -356,4 +336,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export {MentionInput};
+export { MentionInput };
