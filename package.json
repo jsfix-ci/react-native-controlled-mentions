@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "diff": "5.0.0",
-    "rxjs": "~6.6.7",
+    "rxjs": "^7.5.6",
     "string.prototype.matchall": "4.0.3"
   },
   "jest": {
